@@ -1,4 +1,4 @@
-""" Qualification controller for the level-2 racing setup.
+"""Qualification controller for the level-2 racing setup.
 
 This is a loadable controller entrypoint. The implementation is split across
 ``control/qualification`` helpers so this file contains exactly one Controller
@@ -66,7 +66,7 @@ class QualificationController(Controller):
 
         base_leg_times = np.array([3.85, 2.5, 3.5, 2.25], dtype=np.float64)
         alpha = 0.9
-        beta = np.array([1.22, 1.08, 0.88, 1.12], dtype=np.float64)
+        beta = np.array([1.22, 1.08, 0.88, 1.2], dtype=np.float64)
         self.leg_times = base_leg_times * alpha * beta
 
         drone_params = load_params(config.sim.physics, config.sim.drone_model)

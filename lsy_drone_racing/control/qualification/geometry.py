@@ -44,7 +44,7 @@ DEFAULT_OBSTACLES = np.array(
 def gate_axis_points(
     gate_pos: NDArray[np.floating],
     gate_rpy: NDArray[np.floating],
-    r_in: float = 0.2,
+    r_in: float = 0.25,
     r_out: float = 0.4,
 ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
     """Return two points aligned with the gate's local x-axis, projected to horizontal."""
