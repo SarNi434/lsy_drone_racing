@@ -23,8 +23,6 @@ from lsy_drone_racing.control.qualification.geometry import (
     DEFAULT_OBSTACLES,
     normalize_gate_index,
 )
-from lsy_drone_racing.control.qualification.params import ReplanTuning, leg_times, pid_gains
-from lsy_drone_racing.control.qualification.replanning import replan_decision
 from lsy_drone_racing.control.qualification.trajectory import (
     ROUTE_OVERRIDE_FILE,
     load_route_overrides,
@@ -59,99 +57,74 @@ class QualificationController(Controller):
         """Initialise controller state and tuning parameters."""
         super().__init__(obs, info, config)
         self._freq = float(config.env.freq)
+        self._t_max = 25.0
 
         self.gate_rpy = DEFAULT_GATE_RPY.copy()
         self._ref_gate_pos = DEFAULT_GATE_POS.copy()
         self._obstacles = DEFAULT_OBSTACLES.copy()
         self._route_overrides = load_route_overrides(ROUTE_OVERRIDE_FILE)
 
-        self.leg_times = leg_times()
+        base_leg_times = np.array([3.85, 2.5, 3.5, 2.25], dtype=np.float64)
+        alpha = 0.9
+        beta = np.array([1.22, 1.08, 0.88, 1.12], dtype=np.float64)
+        self.leg_times = base_leg_times * alpha * beta
 
         drone_params = load_params(config.sim.physics, config.sim.drone_model)
         self.mass = float(drone_params["mass"])
         self.g = 9.81
-        self.kp, self.ki, self.kd, self.i_clamp = pid_gains()
+        self.kp = np.array([0.57, 0.57, 1.55], dtype=np.float64)
+        self.ki = np.array([0.045, 0.045, 0.05], dtype=np.float64)
+        self.kd = np.array([0.50, 0.50, 0.5], dtype=np.float64)
+        self.i_clamp = np.array([1.5, 1.5, 0.4], dtype=np.float64)
         self.i_err = np.zeros(3, dtype=np.float64)
 
         self._reference: CubicSpline | None = None
+        self._reference_t_end = self._t_max
         self._tick = 0
         self._finished = False
         self._init = True
         self._active_leg = -1
         self._leg_start_t = np.zeros(4, dtype=np.float64)
         self._last_action = np.zeros(4, dtype=np.float32)
-        self._last_replan_t = -np.inf
-        self._replan_tuning = ReplanTuning()
 
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
     ) -> NDArray[np.floating]:
         """Compute the next attitude + thrust command."""
         del info
-        t = self._tick / self._freq
+        t = min(self._tick / self._freq, self._t_max)
 
         target_gate = normalize_gate_index(obs["target_gate"])
         if target_gate == -1:
             self._finished = True
             return self._last_action
+        if t >= self._t_max:
+            self._finished = True
 
         gate_pos = np.asarray(obs["gates_pos"], dtype=np.float64)
         gate_quat = np.asarray(obs["gates_quat"], dtype=np.float64)
-        obstacles = np.asarray(obs["obstacles_pos"], dtype=np.float64)
         pos = np.asarray(obs["pos"], dtype=np.float64)
         vel = np.asarray(obs["vel"], dtype=np.float64)
         quat = np.asarray(obs["quat"], dtype=np.float64)
 
         self.gate_rpy = R.from_quat(gate_quat).as_euler("xyz", degrees=False)
-        obstacle_shift = float(np.max(np.linalg.norm(self._obstacles - obstacles, axis=1)))
-        self._obstacles = obstacles.copy()
+        dist_2d = float(np.linalg.norm(gate_pos[target_gate, :2] - pos[:2]))
+        gate_shifted = (
+            float(np.linalg.norm(self._ref_gate_pos[target_gate] - gate_pos[target_gate]))
+            > 0.01
+        )
+        needs_replan = (
+            self._init
+            or self._active_leg != target_gate
+            or (gate_shifted and dist_2d < 0.65)
+        )
 
-        try:
-            replan = replan_decision(
-                t=t,
-                last_replan_t=self._last_replan_t,
-                init=self._init,
-                active_leg=self._active_leg,
-                target_gate=target_gate,
-                pos=pos,
-                gate_pos=gate_pos,
-                ref_gate_pos=self._ref_gate_pos,
-                obstacle_shift=obstacle_shift,
-                reference_is_expired=False,
-                tuning=self._replan_tuning,
-            )
-        except TypeError as exc:
-            # Compatibility path for environments still running the older
-            # replan_decision signature without time/cooldown fields.
-            if "unexpected keyword argument 't'" not in str(exc) and "last_replan_t" not in str(exc):
-                raise
-            replan = replan_decision(
-                init=self._init,
-                active_leg=self._active_leg,
-                target_gate=target_gate,
-                pos=pos,
-                gate_pos=gate_pos,
-                ref_gate_pos=self._ref_gate_pos,
-                obstacle_shift=obstacle_shift,
-                reference_is_expired=False,
-                tuning=self._replan_tuning,
-            )
-
-        if replan.needs_replan:
-            self._refresh_reference(
-                t,
-                target_gate,
-                gate_pos,
-                reset_leg_clock=replan.reference_expired,
-                start_pos=pos if replan.reference_expired else None,
-            )
-            self._last_replan_t = t
+        if needs_replan:
+            self._refresh_reference(t, target_gate, gate_pos)
             self._init = False
             self._ref_gate_pos = gate_pos.copy()
 
-        # Keep evaluating at wall-clock t (MASF behavior); clamping to leg end can
-        # freeze the setpoint before the gate is actually passed.
-        t_eval = t
+        t_eval = min(t, self._reference_t_end)
         action, self.i_err = _tracking_command(
             self._require_reference(),
             pos,
@@ -199,8 +172,8 @@ class QualificationController(Controller):
         self.i_err[:] = 0.0
         self._last_action = np.zeros(4, dtype=np.float32)
         self._reference = None
+        self._reference_t_end = self._t_max
         self._leg_start_t[:] = 0.0
-        self._last_replan_t = -np.inf
 
     def episode_reset(self) -> None:
         """Reset all per-episode state."""
@@ -211,7 +184,7 @@ class QualificationController(Controller):
         if self._reference is None:
             return
         leg = max(self._active_leg, 0)
-        t_now = min(self._tick / self._freq, self._current_reference_end())
+        t_now = min(self._tick / self._freq, self._reference_t_end)
         setpoint = self._reference(t_now).reshape(1, -1)
         draw_points(sim, setpoint, rgba=(1.0, 0.0, 0.0, 1.0), size=0.02)
         t0 = self._leg_start_t[leg]
@@ -225,7 +198,7 @@ class QualificationController(Controller):
             "controller_phase": "FINISHED" if self._finished else "TRACKING",
             "target_gate": self._active_leg,
             "traj_local_time": self._tick / self._freq,
-            "traj_total_time": self._current_reference_end(),
+            "traj_total_time": self._reference_t_end,
             "plan_mode": "qualification_reference",
         }
 
@@ -234,14 +207,12 @@ class QualificationController(Controller):
         t: float,
         target_gate: int,
         gate_pos: NDArray[np.floating],
-        reset_leg_clock: bool = False,
-        start_pos: NDArray[np.floating] | None = None,
     ) -> None:
-        if self._active_leg != target_gate or reset_leg_clock:
+        if self._active_leg != target_gate:
             self._leg_start_t[target_gate] = t
             self._active_leg = target_gate
         try:
-            self._reference, _ = _build_reference_curve(
+            self._reference, self._reference_t_end = _build_reference_curve(
                 target_gate,
                 gate_pos,
                 self.gate_rpy,
@@ -249,12 +220,11 @@ class QualificationController(Controller):
                 float(self._leg_start_t[target_gate]),
                 float(self.leg_times[target_gate]),
                 route_overrides=self._route_overrides,
-                start_pos=start_pos,
             )
         except TypeError as exc:
-            if "route_overrides" not in str(exc) and "start_pos" not in str(exc):
+            if "route_overrides" not in str(exc):
                 raise
-            self._reference, _ = _build_reference_curve(
+            self._reference, self._reference_t_end = _build_reference_curve(
                 target_gate,
                 gate_pos,
                 self.gate_rpy,
@@ -267,8 +237,3 @@ class QualificationController(Controller):
         if self._reference is None:
             raise RuntimeError("QualificationController used before planning a reference")
         return self._reference
-
-    def _current_reference_end(self) -> float:
-        if self._active_leg < 0:
-            return 0.0
-        return float(self._leg_start_t[self._active_leg] + self.leg_times[self._active_leg])

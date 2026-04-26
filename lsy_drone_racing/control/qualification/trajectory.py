@@ -33,25 +33,25 @@ def build_route_points(
     """Assemble the ordered control points for one target gate."""
     if route_idx == 0:
         _, p_exit = gate_axis_points(gate_pos[0], gate_rpy[0])
-        points = [np.array([-1.48, 0.74, 0.06], dtype=np.float64)]
+        points = [np.array([-1.5, 0.75, 0.05], dtype=np.float64)]
         if extra is not None:
             points.append(extra)
-        points += [gate_pos[0], p_exit, np.array([1.24, 0.02, 1.01], dtype=np.float64)]
+        points += [gate_pos[0], p_exit, np.array([1.25, 0.0, 1.0], dtype=np.float64)]
     elif route_idx == 1:
         p_enter, p_exit = gate_axis_points(gate_pos[1], gate_rpy[1])
-        points = [gate_pos[0], np.array([1.27, -0.01, 0.99], dtype=np.float64)]
+        points = [gate_pos[0], np.array([1.25, 0.0, 1.0], dtype=np.float64)]
         if extra is not None:
             points.append(extra)
-        points += [p_enter, gate_pos[1], p_exit, np.array([0.02, 0.98, 1.01], dtype=np.float64)]
+        points += [p_enter, gate_pos[1], p_exit, np.array([0.0, 1.0, 1.0], dtype=np.float64)]
     elif route_idx == 2:
         p_enter, p_exit = gate_axis_points(gate_pos[2], gate_rpy[2], 0.4, 0.3)
         points = [gate_pos[1]]
         if extra is not None:
             points.append(extra)
-        points += [np.array([-0.02, 0.27, 0.99], dtype=np.float64), p_enter, gate_pos[2], p_exit]
+        points += [np.array([0.0, 0.25, 1.0], dtype=np.float64), p_enter, gate_pos[2], p_exit]
     elif route_idx == 3:
         _, p_exit = gate_axis_points(gate_pos[3], gate_rpy[3], 0.2, 0.4)
-        points = [gate_pos[2], np.array([-0.48, -0.52, 0.81], dtype=np.float64)]
+        points = [gate_pos[2], np.array([-0.5, -0.5, 0.8], dtype=np.float64)]
         if extra is not None:
             points.append(extra)
         points += [gate_pos[3], p_exit]
@@ -152,13 +152,14 @@ def clearance_point(
     """Sample a reference and return one push-away point if needed."""
     obstacle = np.asarray(obstacles, dtype=np.float64)[SECTOR_OBSTACLE_INDEX[route_idx]]
     samples = reference(np.linspace(t_start, t_end, 40))
-    for point in samples:
-        delta = obstacle[:2] - point[:2]
-        dist = float(np.linalg.norm(delta))
-        if dist < trigger:
-            push = delta / (dist + 1e-6) * 0.2
-            return np.array([point[0] - push[0], point[1] - push[1], point[2]], dtype=np.float64)
-    return None
+    diff = obstacle[:2] - samples[:, :2]
+    dist = np.linalg.norm(diff, axis=1)
+    closest = int(np.argmin(dist))
+    if dist[closest] >= trigger:
+        return None
+    point = samples[closest]
+    push = diff[closest] / (dist[closest] + 1e-6) * 0.2
+    return np.array([point[0] - push[0], point[1] - push[1], point[2]], dtype=np.float64)
 
 
 def build_reference_curve(
@@ -171,7 +172,6 @@ def build_reference_curve(
     extra: NDArray[np.floating] | None = None,
     depth: int = 0,
     route_overrides: tuple[NDArray[np.floating], ...] | None = None,
-    start_pos: NDArray[np.floating] | None = None,
 ) -> tuple[CubicSpline, float]:
     """Build a reference curve and recursively inject one clearance point."""
     default_points = build_route_points(route_idx, gate_pos, gate_rpy, extra)
@@ -181,12 +181,10 @@ def build_reference_curve(
         else None
     )
     waypoints = _with_override_xy(default_points, override_xy)
-    if start_pos is not None and extra is None:
-        waypoints = waypoints.copy()
-        waypoints[0] = np.asarray(start_pos, dtype=np.float64)
     t_end = float(t_start + duration)
     knots = np.linspace(t_start, t_end, len(waypoints))
     reference = CubicSpline(knots, waypoints)
+
     if depth < MAX_AVOID_DEPTH:
         avoid_point = clearance_point(reference, t_start, t_end, route_idx, obstacles)
         if avoid_point is not None:
@@ -200,6 +198,5 @@ def build_reference_curve(
                 avoid_point,
                 depth + 1,
                 route_overrides=route_overrides,
-                start_pos=start_pos,
             )
     return reference, t_end

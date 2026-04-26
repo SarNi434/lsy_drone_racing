@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -46,9 +47,10 @@ def gate_axis_points(
     r_in: float = 0.2,
     r_out: float = 0.4,
 ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
-    """Return two points aligned with a gate's yaw axis."""
-    yaw = float(gate_rpy[2])
-    axis = np.array([np.cos(yaw), np.sin(yaw), 0.0], dtype=np.float64)
+    """Return two points aligned with the gate's local x-axis, projected to horizontal."""
+    axis = R.from_euler("xyz", gate_rpy).apply(np.array([1.0, 0.0, 0.0], dtype=np.float64))
+    axis[2] = 0.0
+    axis /= np.linalg.norm(axis) + 1e-9
     return gate_pos - r_in * axis, gate_pos + r_out * axis
 
 
