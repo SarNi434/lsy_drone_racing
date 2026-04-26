@@ -1,4 +1,4 @@
-"""Qualification controller for the level-2 racing setup.
+""" Qualification controller for the level-2 racing setup.
 
 This is a loadable controller entrypoint. The implementation is split across
 ``control/qualification`` helpers so this file contains exactly one Controller
