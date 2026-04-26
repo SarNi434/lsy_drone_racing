@@ -45,7 +45,7 @@ def gate_axis_points(
     gate_pos: NDArray[np.floating],
     gate_rpy: NDArray[np.floating],
     r_in: float = 0.25,
-    r_out: float = 0.4,
+    r_out: float = 0.3,
 ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
     """Return two points aligned with the gate's local x-axis, projected to horizontal."""
     axis = R.from_euler("xyz", gate_rpy).apply(np.array([1.0, 0.0, 0.0], dtype=np.float64))

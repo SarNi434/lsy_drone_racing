@@ -65,8 +65,8 @@ class QualificationController(Controller):
         self._route_overrides = load_route_overrides(ROUTE_OVERRIDE_FILE)
 
         base_leg_times = np.array([3.85, 2.5, 3.5, 2.25], dtype=np.float64)
-        alpha = 0.9
-        beta = np.array([1.22, 1.08, 0.88, 1.2], dtype=np.float64)
+        alpha = 0.83
+        beta = np.array([1.1, 1.08, 0.88, 1.2], dtype=np.float64)
         self.leg_times = base_leg_times * alpha * beta
 
         drone_params = load_params(config.sim.physics, config.sim.drone_model)
@@ -111,7 +111,7 @@ class QualificationController(Controller):
         dist_2d = float(np.linalg.norm(gate_pos[target_gate, :2] - pos[:2]))
         gate_shifted = (
             float(np.linalg.norm(self._ref_gate_pos[target_gate] - gate_pos[target_gate]))
-            > 0.01
+            > 0.005
         )
         needs_replan = (
             self._init
