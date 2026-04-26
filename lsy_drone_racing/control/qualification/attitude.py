@@ -36,14 +36,14 @@ def tracking_command(
     # CubicSpline a_ref on linspace knots is spiky; cap and scale to keep
     # lateral feedforward from saturating the inner attitude loop.
     acc_norm = float(np.linalg.norm(ref_acc))
-    if acc_norm > 8.0:
-        ref_acc = ref_acc * (8.0 / acc_norm)
+    if acc_norm > 12.0:
+        ref_acc = ref_acc * (12.0 / acc_norm)
 
     e_pos = ref_pos - pos
     e_vel = ref_vel - vel
     next_i_error = np.clip(i_error + e_pos / freq, -i_clamp, i_clamp)
 
-    thrust_vec = kp * e_pos + ki * next_i_error + kd * e_vel + 0.5 * mass * ref_acc
+    thrust_vec = kp * e_pos + ki * next_i_error + kd * e_vel + 0.9 * mass * ref_acc
     thrust_vec[2] += mass * gravity
 
     z_body = R.from_quat(quat).as_matrix()[:, 2]
