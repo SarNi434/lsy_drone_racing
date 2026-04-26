@@ -65,8 +65,8 @@ class QualificationController(Controller):
         self._route_overrides = load_route_overrides(ROUTE_OVERRIDE_FILE)
 
         base_leg_times = np.array([3.85, 2.5, 3.5, 2.25], dtype=np.float64)
-        alpha = 0.80
-        beta = np.array([1.1, 1.08, 0.88, 1.2], dtype=np.float64)
+        alpha = 0.83
+        beta = np.array([1.1, 1.1, 0.88, 1.2], dtype=np.float64)
         self.leg_times = base_leg_times * alpha * beta
 
         drone_params = load_params(config.sim.physics, config.sim.drone_model)
