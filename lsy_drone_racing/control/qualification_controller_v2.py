@@ -1,7 +1,7 @@
 """Qualification controller for the level-2 racing setup.
 
 This is a loadable controller entrypoint. The implementation is split across
-``control/qualificationv2`` helpers so this file contains exactly one Controller
+`` control/qualificationv2`` helpers so this file contains exactly one Controller
 subclass, which keeps ``load_controller`` happy.
 """
 
