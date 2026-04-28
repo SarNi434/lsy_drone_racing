@@ -44,7 +44,7 @@ def current_qualification_tuning() -> QualificationTuning:
     """Return the current hand-tuned qualification parameters."""
     base_leg_times = np.array([3.85, 2.5, 3.5, 2.25], dtype=np.float64)
     alpha = 0.84
-    beta = np.array([0.72, 1.17, 0.9, 0.97], dtype=np.float64)
+    beta = np.array([0.7, 1.16, 0.89, 0.96], dtype=np.float64)
 
     return QualificationTuning(
         leg_times=base_leg_times * alpha * beta,
