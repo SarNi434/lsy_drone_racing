@@ -15,7 +15,7 @@ from drone_models.core import load_params
 from scipy.spatial.transform import Rotation as R
 
 from lsy_drone_racing.control import Controller
-from lsy_drone_racing.control.qualificationv2 import attitudecopy as _attitude_helpers
+from lsy_drone_racing.control.qualificationv2 import attitude as _attitude_helpers
 from lsy_drone_racing.control.qualificationv2 import trajectory as _trajectory_helpers
 from lsy_drone_racing.control.qualificationv2.geometry import (
     DEFAULT_GATE_POS,
