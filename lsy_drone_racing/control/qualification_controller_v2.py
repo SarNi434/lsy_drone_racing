@@ -1,7 +1,7 @@
 """Qualification controller for the level-2 racing setup.
 
 This is a loadable controller entrypoint. The implementation is split across
-`` control/qualificationv2`` helpers so this file contains exactly one Controller
+``control/qualification`` helpers so this file contains exactly one Controller
 subclass, which keeps ``load_controller`` happy.
 """
 
@@ -122,7 +122,7 @@ class QualificationController(Controller):
         needs_replan = (
             self._init
             or self._active_leg != target_gate
-            or (gate_shifted and dist_2d < 0.65)
+            or (gate_shifted and dist_2d < 0.7)
         )
 
         if needs_replan:

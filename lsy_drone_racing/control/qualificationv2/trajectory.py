@@ -29,6 +29,9 @@ ROUTE_OVERRIDE_FILE = "logs/qualification_route_waypoints.json"
 UNCHANGED_OVERRIDE_TOL = 1e-8
 GATE1_EXIT_OFFSET = 0.35
 GATE1_LEFT_OFFSET_TOWARD_GATE0 = 0.02
+GATE1_POLE_AVOIDANCE_POINT = np.array([1.35, -0.18, 1.0], dtype=np.float64)
+GATE0_LATERAL_OFFSET_AWAY_FROM_START = 0.035
+GATE0_VERTICAL_OFFSET = 0.02
 GATE2_ENTRY_OFFSET = 0.30
 GATE2_MINIMAL_EXIT_OFFSET = 0.08
 DEFAULT_CLEARANCE_TRIGGERS = (0.15, 0.15, 0.15, 0.17)
@@ -40,6 +43,8 @@ DEFAULT_CLEARANCE_PUSH_MAX = (0.12, 0.12, 0.12, 0.06)
 class RouteTuning:
     """Optional route geometry changes relative to the backup route."""
 
+    gate0_lateral_offset: float = 0.0
+    gate0_vertical_offset: float = 0.0
     gate1_exit_offset: float = 0.0
     gate1_left_offset_toward_gate0: float = 0.0
     clearance_triggers: tuple[float, float, float, float] = DEFAULT_CLEARANCE_TRIGGERS
@@ -88,6 +93,25 @@ def _gate1_crossing_and_exit_points(
     return crossing, exit_point
 
 
+def _gate0_biased_center(
+    gate_pos: NDArray[np.floating],
+    gate_rpy: NDArray[np.floating],
+    route_tuning: RouteTuning,
+) -> NDArray[np.floating]:
+    from scipy.spatial.transform import Rotation as R
+
+    rotation = R.from_euler("xyz", np.asarray(gate_rpy[0], dtype=np.float64))
+    local_offset = np.array(
+        [
+            0.0,
+            route_tuning.gate0_lateral_offset,
+            route_tuning.gate0_vertical_offset,
+        ],
+        dtype=np.float64,
+    )
+    return np.asarray(gate_pos[0], dtype=np.float64) + rotation.apply(local_offset)
+
+
 def _gate_extra_exit_point(
     gate_pos: NDArray[np.floating],
     gate_rpy: NDArray[np.floating],
@@ -111,14 +135,17 @@ def build_route_points(
     """Assemble the ordered control points for one target gate."""
     route_tuning = route_tuning or RouteTuning()
     if route_idx == 0:
-        _, p_exit = gate_axis_points(gate_pos[0], gate_rpy[0])
+        gate0_target = _gate0_biased_center(gate_pos, gate_rpy, route_tuning)
+        _, p_exit = gate_axis_points(gate0_target, gate_rpy[0])
         points = [np.array([-1.5, 0.75, 0.05], dtype=np.float64)]
         if extra is not None:
             points.append(extra)
-        points += [gate_pos[0], p_exit]
+        points += [gate0_target, p_exit]
     elif route_idx == 1:
         p_enter, p_exit = gate_axis_points(gate_pos[1], gate_rpy[1])
-        points = [gate_pos[0], np.array([1.25, 0.0, 1.0], dtype=np.float64)]
+        gate0_start = _gate0_biased_center(gate_pos, gate_rpy, route_tuning)
+        _, gate0_exit = gate_axis_points(gate0_start, gate_rpy[0])
+        points = [gate0_exit, GATE1_POLE_AVOIDANCE_POINT.copy()]
         if extra is not None:
             points.append(extra)
         if route_tuning.gate1_exit_offset > 0.0 or route_tuning.gate1_left_offset_toward_gate0 != 0.0:
@@ -130,7 +157,6 @@ def build_route_points(
             p_enter = p_enter + (gate1_crossing - gate_pos[1])
             points += [
                 p_enter,
-                gate1_crossing,
                 gate1_exit,
                 np.array([0.0, 1.0, 1.0], dtype=np.float64),
             ]
@@ -144,12 +170,12 @@ def build_route_points(
             GATE2_MINIMAL_EXIT_OFFSET,
         )
         if route_tuning.gate1_exit_offset > 0.0:
-            gate1_crossing, gate1_exit = _gate1_crossing_and_exit_points(
+            _, gate1_exit = _gate1_crossing_and_exit_points(
                 gate_pos,
                 gate_rpy,
                 route_tuning,
             )
-            points = [gate1_crossing, gate1_exit]
+            points = [gate1_exit]
         else:
             points = [gate_pos[1]]
         if extra is not None:
@@ -316,7 +342,7 @@ def build_reference_curve(
     )
     reference = (
         CubicSpline(knots, waypoints)
-        if route_idx == 1
+        if route_idx in (0, 1)
         else PchipInterpolator(knots, waypoints, axis=0)
     )
 

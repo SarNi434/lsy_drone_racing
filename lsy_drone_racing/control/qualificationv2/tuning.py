@@ -1,4 +1,4 @@
-"""Central tuning values for the abgabe1 qualification controller. """
+"""Central tuning values for the abgabe1 qualification controller."""
 
 from __future__ import annotations
 
@@ -9,6 +9,8 @@ import numpy as np
 from lsy_drone_racing.control.qualificationv2.pid import PositionPidGains
 from lsy_drone_racing.control.qualificationv2.speed_profile import SectorSpeedProfile
 from lsy_drone_racing.control.qualificationv2.trajectory import (
+    GATE0_LATERAL_OFFSET_AWAY_FROM_START,
+    GATE0_VERTICAL_OFFSET,
     GATE1_EXIT_OFFSET,
     GATE1_LEFT_OFFSET_TOWARD_GATE0,
     RouteTuning,
@@ -44,13 +46,13 @@ def current_qualification_tuning() -> QualificationTuning:
     """Return the current hand-tuned qualification parameters."""
     base_leg_times = np.array([3.85, 2.5, 3.5, 2.25], dtype=np.float64)
     alpha = 0.84
-    beta = np.array([0.65, 1.08, 0.81, 0.99], dtype=np.float64)
+    beta = np.array([0.6, 0.98, 0.68, 0.85], dtype=np.float64)
 
     return QualificationTuning(
         leg_times=base_leg_times * alpha * beta,
         speed_profiles=(
-            SectorSpeedProfile(start=1.0, mid=1.0, end=1.0),
-            SectorSpeedProfile(start=1.0, mid=1.0, end=1.0),
+            SectorSpeedProfile(start=1.0, mid=1.0, end=1.4),
+            SectorSpeedProfile(start=1.0, mid=1.8, end=1.4),
             SectorSpeedProfile(start=1.0, mid=1.0, end=1.0),
             SectorSpeedProfile(start=1.0, mid=1.0, end=1.0),
         ),
@@ -73,6 +75,8 @@ def gate1_offset_tuning() -> QualificationTuning:
         speed_profiles=tuning.speed_profiles,
         pid_gains_by_section=tuning.pid_gains_by_section,
         route_tuning=RouteTuning(
+            gate0_lateral_offset=GATE0_LATERAL_OFFSET_AWAY_FROM_START,
+            gate0_vertical_offset=GATE0_VERTICAL_OFFSET,
             gate1_exit_offset=GATE1_EXIT_OFFSET,
             gate1_left_offset_toward_gate0=GATE1_LEFT_OFFSET_TOWARD_GATE0,
             clearance_triggers=(0.15, 0.15, 0.15, 0.1),
