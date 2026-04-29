@@ -250,4 +250,4 @@ class QualificationController(Controller):
         gains = self.pid_gains_by_section[target_gate]
         if self.position_pid.gains is gains:
             return
-        self.position_pid = PositionPid(gains)
+        self.position_pid.set_gains(gains)

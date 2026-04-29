@@ -29,7 +29,14 @@ ROUTE_OVERRIDE_FILE = "logs/qualification_route_waypoints.json"
 UNCHANGED_OVERRIDE_TOL = 1e-8
 GATE1_EXIT_OFFSET = 0.35
 GATE1_LEFT_OFFSET_TOWARD_GATE0 = 0.02
-GATE1_POLE_AVOIDANCE_POINT = np.array([1.3, -0.14, 1.0], dtype=np.float64)
+GATE1_POLE_AVOIDANCE_POINT = np.array([1.35, -0.18, 1.0], dtype=np.float64)
+GATE1_POLE_ARC_POINTS = np.array(
+    [
+        [1.08, -0.16, 0.86],
+        [1.38, 0.12, 1.08],
+    ],
+    dtype=np.float64,
+)
 GATE0_LATERAL_OFFSET_AWAY_FROM_START = 0.035
 GATE0_VERTICAL_OFFSET = 0.02
 GATE2_ENTRY_OFFSET = 0.30
@@ -145,7 +152,7 @@ def build_route_points(
         p_enter, p_exit = gate_axis_points(gate_pos[1], gate_rpy[1])
         gate0_start = _gate0_biased_center(gate_pos, gate_rpy, route_tuning)
         _, gate0_exit = gate_axis_points(gate0_start, gate_rpy[0])
-        points = [gate0_exit, GATE1_POLE_AVOIDANCE_POINT.copy()]
+        points = [gate0_exit, *GATE1_POLE_ARC_POINTS.copy()]
         if extra is not None:
             points.append(extra)
         if route_tuning.gate1_exit_offset > 0.0 or route_tuning.gate1_left_offset_toward_gate0 != 0.0:
@@ -158,10 +165,9 @@ def build_route_points(
             points += [
                 p_enter,
                 gate1_exit,
-                np.array([0.0, 1.0, 1.0], dtype=np.float64),
             ]
         else:
-            points += [p_enter, gate_pos[1], p_exit, np.array([0.0, 1.0, 1.0], dtype=np.float64)]
+            points += [p_enter, gate_pos[1], p_exit]
     elif route_idx == 2:
         p_enter, p_exit = gate_axis_points(
             gate_pos[2],

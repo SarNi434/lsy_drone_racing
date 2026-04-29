@@ -42,11 +42,12 @@ def tracking_command(
     ref_vel = reference.derivative()(t_eval)
     ref_acc = reference.derivative(2)(t_eval)
 
-    # CubicSpline a_ref on linspace knots is spiky; cap and scale to keep
-    # lateral feedforward from saturating the inner attitude loop.
-    acc_norm = float(np.linalg.norm(ref_acc))
-    if acc_norm > 10.0:
-        ref_acc = ref_acc * (10.0 / acc_norm)
+    # CubicSpline a_ref on linspace knots is spiky; cap lateral feedforward
+    # without clipping vertical acceleration needed for gate height changes.
+    lateral_acc_norm = float(np.linalg.norm(ref_acc[:2]))
+    if lateral_acc_norm > 16.0:
+        ref_acc = ref_acc.copy()
+        ref_acc[:2] *= 16.0 / lateral_acc_norm
 
     e_pos = ref_pos - pos
     e_vel = ref_vel - vel

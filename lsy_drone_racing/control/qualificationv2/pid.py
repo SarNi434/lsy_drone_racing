@@ -49,6 +49,10 @@ class PositionPid:
         """Clear accumulated integral error."""
         self.integral[:] = 0.0
 
+    def set_gains(self, gains: PositionPidGains) -> None:
+        """Swap gains while preserving accumulated integral error."""
+        self.gains = gains
+
     def update(
         self,
         pos_error: NDArray[np.floating],
