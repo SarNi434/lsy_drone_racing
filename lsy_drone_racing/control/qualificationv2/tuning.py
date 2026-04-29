@@ -1,4 +1,4 @@
-""" Central tuning values for the abgabe1 qualification controller."""
+"""Central tuning values for the abgabe1 qualification controller."""
 
 from __future__ import annotations
 
