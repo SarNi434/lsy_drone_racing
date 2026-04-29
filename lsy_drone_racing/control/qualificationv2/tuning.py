@@ -44,7 +44,7 @@ def current_qualification_tuning() -> QualificationTuning:
     """Return the current hand-tuned qualification parameters."""
     base_leg_times = np.array([3.85, 2.5, 3.5, 2.25], dtype=np.float64)
     alpha = 0.84
-    beta = np.array([0.67, 1.10, 0.80, 0.92], dtype=np.float64)
+    beta = np.array([0.65, 1.08, 0.81, 0.99], dtype=np.float64)
 
     return QualificationTuning(
         leg_times=base_leg_times * alpha * beta,
@@ -56,8 +56,8 @@ def current_qualification_tuning() -> QualificationTuning:
         ),
         pid_gains_by_section=(
             _pid_gains(kp=(0.60, 0.60, 1.65), ki=(0.05, 0.05, 0.05), kd=(0.35, 0.35, 0.50), i_clamp=(1.5, 1.5, 0.4)),
-            _pid_gains(kp=(0.57, 0.57, 1.55), ki=(0.045, 0.045, 0.05), kd=(0.50, 0.50, 0.50), i_clamp=(1.5, 1.5, 0.4)),
-            _pid_gains(kp=(0.57, 0.57, 1.55), ki=(0.045, 0.045, 0.05), kd=(0.40, 0.40, 0.50), i_clamp=(1.5, 1.5, 0.4)),
+            _pid_gains(kp=(0.6, 0.6, 1.55), ki=(0.045, 0.045, 0.05), kd=(0.55, 0.55, 0.50), i_clamp=(1.5, 1.5, 0.4)),
+            _pid_gains(kp=(0.65, 0.65, 1.55), ki=(0.045, 0.045, 0.05), kd=(0.45, 0.45, 0.50), i_clamp=(1.5, 1.5, 0.4)),
             _pid_gains(kp=(0.65, 0.65, 1.65), ki=(0.045, 0.045, 0.05), kd=(0.30, 0.30, 0.50), i_clamp=(1.5, 1.5, 0.4)),
         ),
 
